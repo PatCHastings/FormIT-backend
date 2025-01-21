@@ -5,6 +5,7 @@ const Question = require('./Question');
 const User = require('./User');
 const Request = require('./Request');
 const Answer = require('./Answer');
+const Token = require('./Token');
 
 // Export models for use in the app
 module.exports = {
@@ -15,4 +16,5 @@ module.exports = {
   User,
   Request,
   Answer,
+  Token,
 };
