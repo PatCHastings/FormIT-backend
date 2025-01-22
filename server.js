@@ -11,10 +11,14 @@ app.use(express.json());
 // Import routes
 const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
+const wizardRoutes = require('./routes/wizardStep');
+const answersRoutes = require('./routes/answers');
 
 // Setup route usage
 app.use('/api/test', testRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', wizardRoutes);
+app.use('/api', answersRoutes);
 
 // Default
 app.get('/', (req, res) => {
