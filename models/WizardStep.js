@@ -13,6 +13,10 @@ const WizardStep = sequelize.define('WizardStep', {
   description: {
     type: DataTypes.TEXT,
   },
+  serviceType: {
+    type: DataTypes.STRING,
+    defaultValue: 'general',
+  }
 }, {
   tableName: 'wizard_steps',
   timestamps: true,

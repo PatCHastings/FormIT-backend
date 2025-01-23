@@ -5,15 +5,23 @@ const router = express.Router();
 
 router.get("/wizard", async (req, res) => {
   try {
+    const { serviceType } = req.query; // e.g. "new_app", "hosting", etc.
+
+    const whereClause = {};
+    if (serviceType) {
+      whereClause.service_type = serviceType;
+    }
+
     const steps = await WizardStep.findAll({
+      where: whereClause,
       include: [
         {
           model: Category,
-          as: "categories", // Ensure alias matches frontend normalization
+          as: "categories",
           include: [
             {
               model: Question,
-              as: "questions", // Ensure alias matches frontend normalization
+              as: "questions",
             },
           ],
         },
