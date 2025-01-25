@@ -102,32 +102,50 @@ router.post("/answers", auth, async (req, res) => {
       });
     }
   });
-  
 
-  router.get("/answers", async (req, res) => {
+
+  router.get("/answers", auth, async (req, res) => {
     const { requestId } = req.query;
+    const userId = req.user.id; // from auth middleware (decoded token)
+  
+    console.log("GET /answers - requestId:", requestId, "userId:", userId);
   
     if (!requestId) {
       return res.status(400).json({ error: "Missing requestId" });
     }
   
     try {
+      // 1) Confirm the request belongs to this user
+      const request = await Request.findOne({
+        where: { id: requestId, user_id: userId },
+      });
+  
+      if (!request) {
+        return res
+          .status(403)
+          .json({ error: "No such request or you do not own this request." });
+      }
+  
+      // 2) Then fetch answers for that request
       const answers = await Answer.findAll({
         where: { request_id: requestId },
         include: [
           {
             model: Question,
-            attributes: ["id", "questionText"],
+            attributes: ["id", "question_text"],
           },
         ],
       });
   
-      // Map the answers to the format required by the frontend
+      console.log("Found answers in DB:", answers);
+  
       const completedAnswers = answers.map((answer) => ({
         questionId: answer.question_id,
         answerText: answer.answer,
-        questionText: answer.question?.questionText, // Include question text
+        questionText: answer.question?.question_text,
       }));
+  
+      console.log("Will return completedAnswers:", completedAnswers);
   
       res.status(200).json({ completedAnswers });
     } catch (error) {

@@ -220,7 +220,7 @@ router.post("/requests", async (req, res) => {
         request = await Request.create({
           user_id: userId,
           project_name: serviceType, // Assign serviceType to projectName
-          status: "draft",
+          status: "draft", 
         });
       }
   
