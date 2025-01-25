@@ -12,14 +12,14 @@ const User = sequelize.define('User', {
   },
   fullName: {
     type: DataTypes.STRING(150),
+    field: 'full_name',
   },
   role: {
     type: DataTypes.STRING(50), // e.g., "admin", "client"
   },
 }, {
   tableName: 'users',
-  timestamps: true,
-  underscored: true,
 });
+
 
 module.exports = User;

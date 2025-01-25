@@ -27,8 +27,6 @@ const Question = sequelize.define(
   },
   {
     tableName: 'questions',
-    timestamps: true,
-    underscored: true,
   }
 );
 

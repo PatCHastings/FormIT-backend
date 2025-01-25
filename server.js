@@ -13,12 +13,14 @@ const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
 const wizardRoutes = require('./routes/wizardStep');
 const answersRoutes = require('./routes/answers');
+const adminRoutes = require('./routes/admin');
 
 // Setup route usage
 app.use('/api/test', testRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', wizardRoutes);
 app.use('/api', answersRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Default
 app.get('/', (req, res) => {

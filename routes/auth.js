@@ -10,10 +10,6 @@ const { sendEmail } = require('../services/emailService');
 // Models
 const { User, Token, Request } = require('../models');
 
-// Middleware
-const auth = require('../middleware/auth');
-const role = require('../middleware/role');
-
 const router = express.Router();
 
 // -------------------------------------
@@ -103,23 +99,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' } // 1 hour expiration
     );
 
-    // -----------------------------------------------------------
-    // Find or create a "Request" row for this user (project logic)
-    // -----------------------------------------------------------
-    let request = await Request.findOne({ where: { user_id: user.id } });
-    if (!request) {
-      request = await Request.create({
-        user_id: user.id,
-        projectName: 'My First Project', // Default project name
-        status: 'draft',
-      });
-    }
-
     // Respond with token & requestId
     res.status(200).json({
       message: 'Login successful.',
       token,
-      requestId: request.id, // <-- Important for the frontend
       user: {
         id: user.id,
         email: user.email,
@@ -136,81 +119,116 @@ router.post('/login', async (req, res) => {
 // -------------------------------------
 // Initiate registration (invite flow)
 // -------------------------------------
-router.post('/register/initiate', async (req, res) => {
-  try {
-    const { email, fullName } = req.body;
-
-    // Validate input
-    if (!email || !fullName) {
-      return res.status(400).json({ error: 'Email and full name are required.' });
+router.post("/register/initiate", async (req, res) => {
+    try {
+      const { email, fullName } = req.body;
+  
+      // Validate input
+      if (!email || !fullName) {
+        return res.status(400).json({ error: "Email and full name are required." });
+      }
+  
+      // Check if user already exists
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({ error: "User with this email already exists." });
+      }
+  
+      // Generate a token for the create-password link
+      const token = crypto.randomBytes(32).toString("hex");
+      const createPasswordUrl = `${process.env.FRONTEND_URL}/create-password?token=${token}`;
+  
+      // Save the token and fullName in the tokens table
+      await Token.create({
+        email,
+        fullName, // Save the fullName temporarily
+        token,
+        expiresAt: new Date(Date.now() + 3600000), // 1-hour expiration
+      });
+  
+      // Send an email with the token link
+      await sendEmail(
+        email,
+        "FormIT: Complete Your Registration",
+        `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password at this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`
+      );
+  
+      res.status(200).json({ message: "Check your email to set a password." });
+    } catch (error) {
+      console.error("Error initiating registration:", error);
+      res.status(500).json({ error: "Failed to initiate registration." });
     }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists.' });
-    }
-
-    // Generate a token for create-password link
-    const token = crypto.randomBytes(32).toString('hex');
-    const createPasswordUrl = `${process.env.FRONTEND_URL}/create-password?token=${token}`;
-
-    // Save token in DB (expires in 1 hour)
-    await Token.create({
-      email,
-      token,
-      expiresAt: new Date(Date.now() + 3600000),
-    });
-
-    // Send the email
-    await sendEmail(
-      email,
-      'FormIT: Complete Your Registration',
-      `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password at this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`
-    );
-
-    res.status(200).json({ message: 'Check your email to set a password.' });
-  } catch (error) {
-    console.error('Error initiating registration:', error);
-    res.status(500).json({ error: 'Failed to initiate registration.' });
-  }
-});
+  });
 
 // -------------------------------------
 // Complete registration (set password)
 // -------------------------------------
-router.post('/register/complete', async (req, res) => {
-  try {
-    const { token, password } = req.body;
-
-    // Validate input
-    if (!token || !password) {
-      return res.status(400).json({ error: 'Token and password are required.' });
+router.post("/register/complete", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+  
+      // Validate input
+      if (!token || !password) {
+        return res.status(400).json({ error: "Token and password are required." });
+      }
+  
+      // Find the token record
+      const tokenRecord = await Token.findOne({ where: { token } });
+      if (!tokenRecord || new Date() > tokenRecord.expiresAt) {
+        return res.status(400).json({ error: "Invalid or expired token." });
+      }
+  
+      // Create the user
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await User.create({
+        email: tokenRecord.email,
+        passwordHash: hashedPassword,
+        fullName: tokenRecord.fullName, // Use the fullName from the tokens table
+        role: "client",
+      });
+  
+      // Delete the token after use
+      await tokenRecord.destroy();
+  
+      res.status(201).json({ message: "Account created successfully." });
+    } catch (error) {
+      console.error("Error completing registration:", error);
+      res.status(500).json({ error: "Failed to complete registration." });
     }
+  });
 
-    // Find token and check expiration
-    const tokenRecord = await Token.findOne({ where: { token } });
-    if (!tokenRecord || new Date() > tokenRecord.expiresAt) {
-      return res.status(400).json({ error: 'Invalid or expired token.' });
+// -------------------------------------
+// create a new request
+// -------------------------------------
+router.post("/requests", async (req, res) => {
+    try {
+      const { serviceType } = req.body;
+      const userId = req.user?.id; // Assuming authentication middleware adds `req.user`
+  
+      if (!userId || !serviceType) {
+        return res
+          .status(400)
+          .json({ message: "User ID and service type are required." });
+      }
+  
+      // Check if a request already exists for this user and serviceType
+      let request = await Request.findOne({
+        where: { user_id: userId, project_name: serviceType },
+      });
+  
+      if (!request) {
+        request = await Request.create({
+          user_id: userId,
+          project_name: serviceType, // Assign serviceType to projectName
+          status: "draft",
+        });
+      }
+  
+      res.status(200).json({ message: "Request created successfully.", requestId: request.id });
+    } catch (error) {
+      console.error("Error creating request:", error);
+      res.status(500).json({ message: "Failed to create request." });
     }
-
-    // Create user
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({
-      email: tokenRecord.email,
-      passwordHash: hashedPassword,
-      fullName: tokenRecord.fullName,
-      role: 'client',
-    });
-
-    // Delete token after use
-    await tokenRecord.destroy();
-
-    res.status(201).json({ message: 'Account created successfully.' });
-  } catch (error) {
-    console.error('Error completing registration:', error);
-    res.status(500).json({ error: 'Failed to complete registration.' });
-  }
-});
-
+  });
+  
 module.exports = router;

@@ -9,8 +9,6 @@ const Answer = sequelize.define('Answer', {
   },
 }, {
   tableName: 'answers',
-  timestamps: true,
-  underscored: true,
 });
 
 // Associations

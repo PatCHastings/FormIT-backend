@@ -12,8 +12,6 @@ const Request = sequelize.define('Request', {
   },
 }, {
   tableName: 'requests',
-  timestamps: true,
-  underscored: true,
 });
 
 // Associations

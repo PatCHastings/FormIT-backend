@@ -15,12 +15,10 @@ const WizardStep = sequelize.define('WizardStep', {
   },
   serviceType: {
     type: DataTypes.STRING,
-    defaultValue: 'general',
+    allowNull: false,
   }
 }, {
   tableName: 'wizard_steps',
-  timestamps: true,
-  underscored: true,
 });
 
 module.exports = WizardStep;

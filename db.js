@@ -16,6 +16,10 @@ const sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_PASSWORD, {
   host: DB_HOST,
   dialect: DB_DIALECT,
   logging: console.log, // Set to false to disable SQL logging
+  define: {
+    underscored: true, // Enforce snake_case for table and column names globally
+    timestamps: true, // Default timestamps for all tables
+  },
 });
 
 module.exports = sequelize;

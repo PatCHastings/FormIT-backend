@@ -8,6 +8,11 @@ const Token = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    fullName: { 
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: "full_name",
+    },
     token: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -19,7 +24,6 @@ const Token = sequelize.define(
   },
   {
     tableName: 'tokens', // Explicitly specify the table name
-    timestamps: true, // Ensure createdAt and updatedAt fields are handled
   }
 );
 
