@@ -196,39 +196,6 @@ router.post("/register/complete", async (req, res) => {
       res.status(500).json({ error: "Failed to complete registration." });
     }
   });
-
-// -------------------------------------
-// create a new request
-// -------------------------------------
-router.post("/requests", async (req, res) => {
-    try {
-      const { serviceType } = req.body;
-      const userId = req.user?.id; // Assuming authentication middleware adds `req.user`
   
-      if (!userId || !serviceType) {
-        return res
-          .status(400)
-          .json({ message: "User ID and service type are required." });
-      }
-  
-      // Check if a request already exists for this user and serviceType
-      let request = await Request.findOne({
-        where: { user_id: userId, project_name: serviceType },
-      });
-  
-      if (!request) {
-        request = await Request.create({
-          user_id: userId,
-          project_name: serviceType, // Assign serviceType to projectName
-          status: "draft", 
-        });
-      }
-  
-      res.status(200).json({ message: "Request created successfully.", requestId: request.id });
-    } catch (error) {
-      console.error("Error creating request:", error);
-      res.status(500).json({ message: "Failed to create request." });
-    }
-  });
   
 module.exports = router;

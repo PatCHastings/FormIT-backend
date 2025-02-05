@@ -6,6 +6,7 @@ const User = require('./User');
 const Request = require('./Request');
 const Answer = require('./Answer');
 const Token = require('./Token');
+const Proposal = require('./Proposal');
 
 // Define associations
 WizardStep.hasMany(Category, { foreignKey: 'step_id', as: 'categories' });
@@ -33,4 +34,5 @@ module.exports = {
   Request,
   Answer,
   Token,
+  Proposal,
 };

@@ -15,6 +15,7 @@ const wizardRoutes = require('./routes/wizardStep');
 const answersRoutes = require('./routes/answers');
 const adminRoutes = require('./routes/admin');
 const requestsRoutes = require('./routes/requests');
+const proposalsRoutes = require('./routes/proposals');
 
 // Setup route usage
 app.use('/api/test', testRoutes);
@@ -23,6 +24,7 @@ app.use('/api', wizardRoutes);
 app.use('/api', answersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', requestsRoutes);
+app.use('/api', proposalsRoutes);
 
 // Default
 app.get('/', (req, res) => {
