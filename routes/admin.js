@@ -1,5 +1,5 @@
 const express = require('express');
-const { User, Request, Answer, Question } = require('../models');
+const { User, Request, Answer, Question, Proposal } = require('../models');
 
 const router = express.Router();
 
@@ -7,32 +7,53 @@ const router = express.Router();
 router.get('/users-with-answers', async (req, res) => {
   try {
     const usersWithAnswers = await User.findAll({
-      where: { role: 'client' }, // Fetch only users with the client role
+      where: { role: 'client' }, // Only users with the 'client' role
+      attributes: ['id', 'email', 'full_name'], // Snake-case columns if needed
       include: [
         {
           model: Request,
-          as: 'requests', // Alias for the association
+          as: 'requests', // Must match User.hasMany(Request, { as: 'requests' })
+          attributes: ['id', 'project_name'],
           include: [
             {
               model: Answer,
-              as: 'answers', // Alias for the association
+              as: 'answers', // Must match Request.hasMany(Answer, { as: 'answers' })
+              attributes: ['id', 'answer', 'question_id'],
               include: [
                 {
+                  // IMPORTANT: 'question' must match Answer.belongsTo(Question, { as: 'question' })
                   model: Question,
-                  as: 'question', // Alias for the association
-                  attributes: ['id', 'question_text'], // Use snake_case column names
+                  as: 'question', // not 'questions'
+                  attributes: ['id', 'question_text'],
                 },
               ],
-              attributes: ['id', 'answer', 'question_id'], // Use snake_case column names
+            },
+            {
+              // If your index.js says Request.hasOne(Proposal, { as: 'proposal' })
+              // Then we use 'proposal' here
+              model: Proposal,
+              as: 'proposal', // not 'proposals'
+              required: false, // so requests without a proposal are still included
+              attributes: [
+                'id',
+                'status',
+                'version',
+                'project_overview', 
+                'project_scope',
+                'timeline',
+                'budget',
+                'terms_and_conditions',
+                'next_steps',
+                'deliverables',
+                'compliance_requirements',
+                'admin_notes',
+              ],
             },
           ],
-          attributes: ['id', 'project_name'], // Use snake_case column names
         },
       ],
-      attributes: ['id', 'email', 'full_name'], // Use snake_case column names
     });
 
-    // Respond with the retrieved data
     res.status(200).json(usersWithAnswers);
   } catch (error) {
     console.error('Error fetching users with answers:', error);

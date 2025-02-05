@@ -21,22 +21,44 @@ const RATE_LIMIT_MINUTES = 15;
  * GET /proposals?requestId=XX
  * Fetch an existing proposal by requestId
  ------------------------------------------- */
-router.get("/", async (req, res) => {
-  const { requestId } = req.query;
+ router.get("/:requestId", async (req, res) => {
+  const { requestId } = req.params; // Extract requestId from URL param
   if (!requestId) {
-    return res.status(400).json({ error: "Missing requestId query param." });
+    return res.status(400).json({ error: "Missing requestId parameter." });
   }
   try {
-    const proposal = await Proposal.findOne({ where: { request_id: requestId } });
+    const proposal = await Proposal.findOne({
+      where: { request_id: requestId },
+      attributes: [
+        "id",
+        "request_id",
+        "proposal_content",
+        "version",
+        "status",
+        "last_generated_at",
+        "project_overview",
+        "project_scope",
+        "timeline",
+        "budget",
+        "terms_and_conditions",
+        "next_steps",
+        "deliverables",
+        "compliance_requirements",
+        "admin_notes",
+      ],
+    });
+
     if (!proposal) {
       return res.status(404).json({ error: "Proposal not found." });
     }
-    return res.json({ proposal });
+
+    return res.status(200).json({ proposal });
   } catch (err) {
     console.error("Error fetching proposal:", err);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 /* -------------------------------------------
  * POST /proposals
@@ -58,7 +80,7 @@ router.get("/", async (req, res) => {
  *   version // optional integer for versioning
  * }
  ------------------------------------------- */
-router.post("/", async (req, res) => {
+router.post("/:requestId", async (req, res) => {
   const {
     requestId,
     proposalContent,
@@ -139,7 +161,7 @@ router.post("/", async (req, res) => {
  * calls GPT-4 (or GPT-3.5, etc.), and
  * saves the AI-generated text to the proposals table
  ------------------------------------------- */
-router.post("/generate", async (req, res) => {
+ router.post("/generate", async (req, res) => {
   try {
     const { requestId } = req.body;
     if (!requestId) {
@@ -160,76 +182,136 @@ router.post("/generate", async (req, res) => {
       return res.status(404).json({ error: "Request not found" });
     }
 
-    // 2) Rate limit check
+    // Optional rate-limit check
     let existingProposal = await Proposal.findOne({ where: { request_id: requestId } });
-    if (existingProposal) {
-      const now = new Date();
-      const lastTime = existingProposal.lastGeneratedAt || new Date(0);
-      const diffMs = now - lastTime;
+    // if (existingProposal) {
+    //   const now = new Date();
+    //   const lastTime = existingProposal.lastGeneratedAt || new Date(0);
+    //   const diffMs = now - lastTime;
     //   if (diffMs < RATE_LIMIT_MINUTES * 60 * 1000) {
     //     return res.status(429).json({
     //       error: `Rate limit: Only one proposal generation every ${RATE_LIMIT_MINUTES} minutes.`,
     //     });
     //   }
-    }
+    // }
 
-    // 3) Build the prompt from answers
+    // 2) Build the 'answersText' from all Q&A
     let answersText = "";
     clientRequest.answers.forEach((answer) => {
-      const qText = answer.question ? answer.question.questionText : "Unknown question";
+      const qText = answer.question?.questionText || "Unknown question";
       answersText += `Question: ${qText}\nAnswer: ${answer.answer}\n\n`;
     });
 
-    // 4) Prepare the ChatGPT messages
+    // 3) Prepare ChatGPT messages
+    //   Force ChatGPT to return strictly valid JSON with these fields:
+    //   "project_overview", "project_scope", "timeline", "budget",
+    //   "terms_and_conditions", "next_steps", "deliverables", "compliance_requirements"
     const messages = [
       {
         role: "developer",
-        content:
-          "You are a senior dev generating a cost-effective project proposal. " +
-          "Format with Overview, Scope, Timeline, Budget, Deliverables, etc.",
+        content: `You are a senior dev generating a project proposal. 
+Return valid JSON ONLY with these exact keys:
+
+{
+  "project_overview": "...",
+  "project_scope": "...",
+  "timeline": "...",
+  "budget": "...",
+  "terms_and_conditions": "...",
+  "next_steps": "...",
+  "deliverables": "...",
+  "compliance_requirements": "..."
+}
+
+No additional text or disclaimers. 
+If any section is not applicable, leave it as an empty string.`,
       },
       {
         role: "user",
-        content: `Based on these client answers:\n\n${answersText}\n\n` +
-          "Generate a concise but thorough project proposal. Use bullet points, short paragraphs, " +
-          "and ensure it's cost-effective.",
+        content: `Based on these client answers:\n\n${answersText}\n\n
+Focus on how AI coding can speed up development at lower cost.
+Strictly return a JSON object with the fields above.`,
       },
     ];
 
-    // 5) Call GPT-4, GPT-3.5, etc.
+    // 4) Call GPT-4 (or gpt-3.5) with the messages
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",  // or "gpt-3.5-turbo"
+      model: "gpt-4",
       messages,
       store: true,
       max_tokens: 1200,
       temperature: 0.7,
     });
 
-    const proposalContent = completion.choices[0].message.content.trim();
+    // 'rawOutput' is what ChatGPT responded
+    const rawOutput = completion.choices[0].message.content.trim();
 
-    // 6) Create or update the proposal
+    // 5) Parse the JSON
+    let data;
+    try {
+      data = JSON.parse(rawOutput);
+    } catch (parseErr) {
+      console.error("Could not parse AI response as JSON:", parseErr);
+      // fallback: store entire raw text or return error
+      return res.status(400).json({
+        error: "The AI did not return valid JSON. Please refine your prompt.",
+        rawOutput,
+      });
+    }
+
+    // data should be like:
+    // {
+    //   "project_overview": "...",
+    //   "project_scope": "...",
+    //   "timeline": "...",
+    //   "budget": "...",
+    //   "terms_and_conditions": "...",
+    //   "next_steps": "...",
+    //   "deliverables": "...",
+    //   "compliance_requirements": "..."
+    // }
+
+    // 6) Create or update the proposal in the DB
     let proposal = existingProposal;
     if (!proposal) {
       proposal = await Proposal.create({
         request_id: requestId,
-        proposalContent,
+        // Map each field from data to your DB columns
+        projectOverview: data.project_overview || "",
+        projectScope: data.project_scope || "",
+        timeline: data.timeline || "",
+        budget: data.budget || "",
+        termsAndConditions: data.terms_and_conditions || "",
+        nextSteps: data.next_steps || "",
+        deliverables: data.deliverables || "",
+        complianceRequirements: data.compliance_requirements || "",
+        // fallback fields
         version: 1,
         status: "draft",
         lastGeneratedAt: new Date(),
       });
     } else {
-      proposal.proposalContent = proposalContent;
+      // If the proposal already exists, update it
+      proposal.projectOverview = data.project_overview || "";
+      proposal.projectScope = data.project_scope || "";
+      proposal.timeline = data.timeline || "";
+      proposal.budget = data.budget || "";
+      proposal.termsAndConditions = data.terms_and_conditions || "";
+      proposal.nextSteps = data.next_steps || "";
+      proposal.deliverables = data.deliverables || "";
+      proposal.complianceRequirements = data.compliance_requirements || "";
       proposal.version += 1;
       proposal.status = "draft";
       proposal.lastGeneratedAt = new Date();
       await proposal.save();
     }
 
-    return res.status(200).json({ proposal });
+    return res.status(200).json({ proposal, rawOutput });
   } catch (error) {
     console.error("Error generating proposal:", error);
     return res.status(500).json({ error: "Failed to generate proposal." });
   }
 });
+
 
 module.exports = router;
