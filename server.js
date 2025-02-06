@@ -16,6 +16,7 @@ const answersRoutes = require('./routes/answers');
 const adminRoutes = require('./routes/admin');
 const requestsRoutes = require('./routes/requests');
 const proposalsRoutes = require('./routes/proposals');
+const comparisonRoutes = require('./routes/comparisons');
 
 // Setup route usage
 app.use('/api/test', testRoutes);
@@ -25,6 +26,7 @@ app.use('/api', answersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', requestsRoutes);
 app.use('/api', proposalsRoutes);
+app.use('/api', comparisonRoutes);
 
 // Default
 app.get('/', (req, res) => {

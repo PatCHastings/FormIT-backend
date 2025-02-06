@@ -44,7 +44,4 @@ const Comparison = sequelize.define(
   }
 );
 
-// Define association: Each Comparison belongs to a Request.
-Comparison.belongsTo(Request, { foreignKey: "request_id", as: "request" });
-
 module.exports = Comparison;

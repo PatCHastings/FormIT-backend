@@ -2,6 +2,7 @@
 
 const express = require("express");
 const router = express.Router();
+const { auth } = require("../middleware/auth");
 
 // 1) Import the new "OpenAI" class from the package
 const OpenAI = require("openai").default;

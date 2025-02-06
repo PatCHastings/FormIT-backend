@@ -7,9 +7,10 @@ const Request = require("./Request");
 const Answer = require("./Answer");
 const Token = require("./Token");
 const Proposal = require("./Proposal");
+const Comparison = require("./Comparison");
 
 // ---------------------------
-// Define associations here
+// Define associations
 // ---------------------------
 
 // 1) WizardStep <-> Category
@@ -75,6 +76,9 @@ Proposal.belongsTo(Request, {
   as: "request",
 });
 
+// Define association: Each Comparison belongs to a Request.
+Comparison.belongsTo(Request, { foreignKey: "request_id", as: "request" });
+
 // ---------------------------
 // Export all models + sequelize
 // ---------------------------
@@ -88,4 +92,5 @@ module.exports = {
   Answer,
   Token,
   Proposal,
+  Comparison,
 };
