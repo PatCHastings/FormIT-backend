@@ -8,7 +8,7 @@ const { auth } = require("../middleware/auth");
 const OpenAI = require("openai").default;
 
 // 2) Destructure your Sequelize models from ../models/index.js
-const { Proposal, Request, Answer, Question } = require("../models");
+const { Proposal, Request, Answer, Question, User } = require("../models");
 
 // 3) Create an OpenAI instance with your API key
 const openai = new OpenAI({
@@ -22,7 +22,7 @@ const RATE_LIMIT_MINUTES = 15;
  * GET /proposals?requestId=XX
  * Fetch an existing proposal by requestId
  ------------------------------------------- */
- router.get("/:requestId", async (req, res) => {
+ router.get("/client/:requestId", async (req, res) => {
   const { requestId } = req.params; // Extract requestId from URL param
   if (!requestId) {
     return res.status(400).json({ error: "Missing requestId parameter." });
@@ -60,99 +60,52 @@ const RATE_LIMIT_MINUTES = 15;
   }
 });
 
-
-/* -------------------------------------------
- * POST /proposals
- * Creates or updates a proposal's new fields
- * Expecting in req.body:
- * {
- *   requestId,
- *   proposalContent, // optional if your schema still uses it
- *   projectOverview,
- *   projectScope,
- *   timeline,
- *   budget,
- *   termsAndConditions,
- *   nextSteps,
- *   deliverables,
- *   complianceRequirements,
- *   adminNotes,
- *   status, // e.g. "draft", "submitted", "approved"
- *   version // optional integer for versioning
- * }
- ------------------------------------------- */
-router.post("/:requestId", async (req, res) => {
-  const {
-    requestId,
-    proposalContent,
-    projectOverview,
-    projectScope,
-    timeline,
-    budget,
-    termsAndConditions,
-    nextSteps,
-    deliverables,
-    complianceRequirements,
-    adminNotes,
-    status,
-    version,
-  } = req.body;
-
-  if (!requestId) {
-    return res.status(400).json({ error: "Missing requestId in request body." });
-  }
-
+// Route: Fetch proposals for the logged-in client
+router.get("/client/:userId", async (req, res) => { 
   try {
-    // Ensure the request exists
-    const clientRequest = await Request.findByPk(requestId);
-    if (!clientRequest) {
-      return res.status(404).json({ error: "No matching Request found." });
+    const { userId } = req.params;
+
+    // Ensure the user exists and is a client
+    const client = await User.findOne({ where: { id: userId, role: "client" } });
+    if (!client) {
+      return res.status(404).json({ error: "Client not found." });
     }
 
-    // Check if there's already a proposal for this request
-    let proposal = await Proposal.findOne({ where: { request_id: requestId } });
+    // ✅ Fetch all proposals for this user's requests
+    const proposals = await Proposal.findAll({
+      include: [
+        {
+          model: Request,
+          as: "request",
+          attributes: ["id", "project_name"],
+        },
+      ],
+      where: { 
+        "$request.user_id$": userId  // ✅ Filtering at the Proposal level
+      },
+      attributes: [
+        "id",
+        "request_id",
+        "status",
+        "last_generated_at",
+        "project_overview",
+        "project_scope",
+        "timeline",
+        "budget",
+        "terms_and_conditions",
+        "next_steps",
+        "deliverables",
+        "compliance_requirements",
+        "admin_notes",
+      ],
+    });
 
-    if (!proposal) {
-      // Create new proposal
-      proposal = await Proposal.create({
-        request_id: requestId,
-        proposalContent: proposalContent || "",
-        projectOverview: projectOverview || null,
-        projectScope: projectScope || null,
-        timeline: timeline || null,
-        budget: budget || null,
-        termsAndConditions: termsAndConditions || null,
-        nextSteps: nextSteps || null,
-        deliverables: deliverables || null,
-        complianceRequirements: complianceRequirements || null,
-        adminNotes: adminNotes || null,
-        status: status || "draft",
-        version: version || 1,
-      });
-    } else {
-      // Update existing proposal
-      if (proposalContent !== undefined) proposal.proposalContent = proposalContent;
-      if (projectOverview !== undefined) proposal.projectOverview = projectOverview;
-      if (projectScope !== undefined) proposal.projectScope = projectScope;
-      if (timeline !== undefined) proposal.timeline = timeline;
-      if (budget !== undefined) proposal.budget = budget;
-      if (termsAndConditions !== undefined) proposal.termsAndConditions = termsAndConditions;
-      if (nextSteps !== undefined) proposal.nextSteps = nextSteps;
-      if (deliverables !== undefined) proposal.deliverables = deliverables;
-      if (complianceRequirements !== undefined) {
-        proposal.complianceRequirements = complianceRequirements;
-      }
-      if (adminNotes !== undefined) proposal.adminNotes = adminNotes;
-      if (status !== undefined) proposal.status = status;
-      if (version !== undefined) proposal.version = version;
+    console.log("Fetched proposals count:", proposals.length);  // Debugging log
 
-      await proposal.save();
-    }
-
-    return res.status(200).json({ proposal });
-  } catch (err) {
-    console.error("Error saving proposal:", err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    res.status(200).json({ proposals });
+  } catch (error) {
+    console.error("Error fetching client proposals:", error);
+    res.status(500).json({ error: "Failed to fetch client proposals." });
   }
 });
 
@@ -311,6 +264,102 @@ Strictly return a JSON object with the fields above.`,
   } catch (error) {
     console.error("Error generating proposal:", error);
     return res.status(500).json({ error: "Failed to generate proposal." });
+  }
+});
+
+/* -------------------------------------------
+ * POST /proposals
+ * Creates or updates a proposal's new fields
+ * Expecting in req.body:
+ * {
+ *   requestId,
+ *   proposalContent, // optional if your schema still uses it
+ *   projectOverview,
+ *   projectScope,
+ *   timeline,
+ *   budget,
+ *   termsAndConditions,
+ *   nextSteps,
+ *   deliverables,
+ *   complianceRequirements,
+ *   adminNotes,
+ *   status, // e.g. "draft", "submitted", "approved"
+ *   version // optional integer for versioning
+ * }
+ ------------------------------------------- */
+ 
+ router.post("/:requestId", async (req, res) => {
+  const {
+    requestId,
+    proposalContent,
+    projectOverview,
+    projectScope,
+    timeline,
+    budget,
+    termsAndConditions,
+    nextSteps,
+    deliverables,
+    complianceRequirements,
+    adminNotes,
+    status,
+    version,
+  } = req.body;
+
+  if (!requestId) {
+    return res.status(400).json({ error: "Missing requestId in request body." });
+  }
+
+  try {
+    // Ensure the request exists
+    const clientRequest = await Request.findByPk(requestId);
+    if (!clientRequest) {
+      return res.status(404).json({ error: "No matching Request found." });
+    }
+
+    // Check if there's already a proposal for this request
+    let proposal = await Proposal.findOne({ where: { request_id: requestId } });
+
+    if (!proposal) {
+      // Create new proposal
+      proposal = await Proposal.create({
+        request_id: requestId,
+        proposalContent: proposalContent || "",
+        projectOverview: projectOverview || null,
+        projectScope: projectScope || null,
+        timeline: timeline || null,
+        budget: budget || null,
+        termsAndConditions: termsAndConditions || null,
+        nextSteps: nextSteps || null,
+        deliverables: deliverables || null,
+        complianceRequirements: complianceRequirements || null,
+        adminNotes: adminNotes || null,
+        status: status || "draft",
+        version: version || 1,
+      });
+    } else {
+      // Update existing proposal
+      if (proposalContent !== undefined) proposal.proposalContent = proposalContent;
+      if (projectOverview !== undefined) proposal.projectOverview = projectOverview;
+      if (projectScope !== undefined) proposal.projectScope = projectScope;
+      if (timeline !== undefined) proposal.timeline = timeline;
+      if (budget !== undefined) proposal.budget = budget;
+      if (termsAndConditions !== undefined) proposal.termsAndConditions = termsAndConditions;
+      if (nextSteps !== undefined) proposal.nextSteps = nextSteps;
+      if (deliverables !== undefined) proposal.deliverables = deliverables;
+      if (complianceRequirements !== undefined) {
+        proposal.complianceRequirements = complianceRequirements;
+      }
+      if (adminNotes !== undefined) proposal.adminNotes = adminNotes;
+      if (status !== undefined) proposal.status = status;
+      if (version !== undefined) proposal.version = version;
+
+      await proposal.save();
+    }
+
+    return res.status(200).json({ proposal });
+  } catch (err) {
+    console.error("Error saving proposal:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
