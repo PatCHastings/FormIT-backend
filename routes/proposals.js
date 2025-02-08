@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const { auth } = require("../middleware/auth");
+const { sequelize } = require("../models");
 
 // 1) Import the new "OpenAI" class from the package
 const OpenAI = require("openai").default;
@@ -18,34 +19,31 @@ const openai = new OpenAI({
 // Optional: Rate-limit threshold in minutes for AI generation
 const RATE_LIMIT_MINUTES = 15;
 
-/* -------------------------------------------
- * GET /proposals?requestId=XX
- * Fetch an existing proposal by requestId
- ------------------------------------------- */
- router.get("/client/:requestId", async (req, res) => {
-  const { requestId } = req.params; // Extract requestId from URL param
-  if (!requestId) {
-    return res.status(400).json({ error: "Missing requestId parameter." });
-  }
+ // Route: Fetch a proposal by requestId
+router.get("/proposal/:requestId", async (req, res) => {
   try {
+    const { requestId } = req.params;
+
+    if (!requestId) {
+      return res.status(400).json({ error: "Missing requestId." });
+    }
+
     const proposal = await Proposal.findOne({
       where: { request_id: requestId },
       attributes: [
         "id",
-        "request_id",
-        "proposal_content",
-        "version",
-        "status",
-        "last_generated_at",
-        "project_overview",
-        "project_scope",
+        "proposalContent",
+        "projectOverview",
+        "projectScope",
         "timeline",
         "budget",
-        "terms_and_conditions",
-        "next_steps",
+        "termsAndConditions",
+        "nextSteps",
         "deliverables",
-        "compliance_requirements",
-        "admin_notes",
+        "complianceRequirements",
+        "adminNotes",
+        "version",
+        "status",
       ],
     });
 
@@ -53,15 +51,16 @@ const RATE_LIMIT_MINUTES = 15;
       return res.status(404).json({ error: "Proposal not found." });
     }
 
-    return res.status(200).json({ proposal });
-  } catch (err) {
-    console.error("Error fetching proposal:", err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    res.status(200).json({ proposal });
+  } catch (error) {
+    console.error("Error fetching proposal:", error);
+    res.status(500).json({ error: "Failed to fetch proposal." });
   }
 });
 
+
 // Route: Fetch proposals for the logged-in client
-router.get("/client/:userId", async (req, res) => { 
+router.get("/client/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -71,18 +70,16 @@ router.get("/client/:userId", async (req, res) => {
       return res.status(404).json({ error: "Client not found." });
     }
 
-    // ✅ Fetch all proposals for this user's requests
+    // Fetch all proposals associated with the user's requests
     const proposals = await Proposal.findAll({
       include: [
         {
           model: Request,
           as: "request",
-          attributes: ["id", "project_name"],
+          where: { user_id: userId }, // Ensure only requests belonging to this user are included
+          attributes: ["id", "projectName"], // Include necessary fields from Request
         },
       ],
-      where: { 
-        "$request.user_id$": userId  // ✅ Filtering at the Proposal level
-      },
       attributes: [
         "id",
         "request_id",
@@ -100,12 +97,49 @@ router.get("/client/:userId", async (req, res) => {
       ],
     });
 
-    console.log("Fetched proposals count:", proposals.length);  // Debugging log
-
+    console.log("Fetched proposals count:", proposals.length); // Debugging log
     res.status(200).json({ proposals });
   } catch (error) {
     console.error("Error fetching client proposals:", error);
     res.status(500).json({ error: "Failed to fetch client proposals." });
+  }
+});
+
+
+router.get("/proposals", async (req, res) => {
+  try {
+    const { requestId } = req.query;
+
+    if (!requestId) {
+      return res.status(400).json({ error: "Missing requestId in query." });
+    }
+
+    const proposal = await Proposal.findOne({
+      where: { request_id: requestId },
+      attributes: [
+        "id",
+        "status",
+        "version",
+        "projectOverview",
+        "projectScope",
+        "timeline",
+        "budget",
+        "termsAndConditions",
+        "nextSteps",
+        "deliverables",
+        "complianceRequirements",
+        "adminNotes",
+      ],
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: "Proposal not found." });
+    }
+
+    res.status(200).json({ proposal });
+  } catch (error) {
+    console.error("Error fetching proposal:", error);
+    res.status(500).json({ error: "Failed to fetch proposal." });
   }
 });
 

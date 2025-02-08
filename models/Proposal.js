@@ -11,6 +11,7 @@ const Proposal = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
       field: "proposal_content",
+      defaultValue: "Proposal content not yet generated.",
     },
     version: {
       type: DataTypes.INTEGER,

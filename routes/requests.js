@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
-const { Request } = require("../models");
+const { Request, User, Proposal } = require("../models");
 
 // POST /requests/findOrCreate
 router.post("/requests/findOrCreate", auth, async (req, res) => {
@@ -69,6 +69,31 @@ router.post("/requests", async (req, res) => {
     } catch (error) {
       console.error("Error creating request:", error);
       res.status(500).json({ message: "Failed to create request." });
+    }
+  });
+
+  router.get("/client/:userId/requests", async (req, res) => {
+    try {
+      const { userId } = req.params;
+  
+      // Fetch the user's requests
+      const requests = await Request.findAll({
+        where: { user_id: userId },
+        attributes: ["id", "projectName", "status"],
+        include: [
+          {
+            model: Proposal,
+            as: "proposal", // Must match Request.hasOne(Proposal, { as: 'proposal' })
+            attributes: ["id", "status", "version"], // Basic Proposal info
+            required: false, // Include requests even if no proposal exists
+          },
+        ],
+      });
+  
+      res.status(200).json({ requests });
+    } catch (error) {
+      console.error("Error fetching user requests:", error);
+      res.status(500).json({ error: "Failed to fetch user requests." });
     }
   });
 
