@@ -9,17 +9,24 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_EMAIL, // Your Gmail address
     pass: process.env.SMTP_PASSWORD, // App Password from Gmail
   },
+  logger: true, // Enable logging
+  debug: true,  // Enable debug output
 });
 
 // Function to send email
-async function sendEmail(to, subject, text, html) {
+async function sendEmail({ to, subject, text, html }) {
   try {
+    console.log('Recipient email:', to);
+    if (!to || typeof to !== 'string' || !to.includes('@')) {
+      throw new Error('Invalid recipient email');
+    }
+
     const mailOptions = {
-      from: process.env.SMTP_EMAIL, // Sender's email
-      to, // Recipient's email
-      subject, // Email subject
-      text, // Plain text body
-      html, // HTML body (optional)
+      from: process.env.SMTP_EMAIL,
+      to,
+      subject,
+      text,
+      html,
     };
 
     const info = await transporter.sendMail(mailOptions);

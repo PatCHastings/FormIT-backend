@@ -20,10 +20,12 @@ const Token = sequelize.define(
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      field: "expires_at",
     },
   },
   {
     tableName: 'tokens', // Explicitly specify the table name
+    timestamps: false, // Disable the default timestamps
   }
 );
 

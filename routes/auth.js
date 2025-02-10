@@ -196,6 +196,80 @@ router.post("/register/complete", async (req, res) => {
       res.status(500).json({ error: "Failed to complete registration." });
     }
   });
-  
+
+  // forgot password
+router.post('/password-reset-request', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate input
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Generate a token for the reset-password link
+    const token = crypto.randomBytes(32).toString('hex');
+    const resetPasswordUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    // Save the token in the tokens table
+    await Token.create({
+      email,
+      token,
+      expiresAt: new Date(Date.now() + 3600000), // 1-hour expiration
+    });
+
+    // Send an email with the token link
+    console.log('Sending email to:', email);
+    await sendEmail({
+      to: email,
+      subject: 'FormIT: Reset Your Password',
+      text: `Hi ${user.fullName},\n\nTo reset your password, click this link:\n${resetPasswordUrl}\n\nBest regards,\nFormIT Team`,
+    });
+
+    res.status(200).json({ message: 'Check your email to reset your password.' });
+  } catch (error) {
+    console.error('Error initiating password reset:', error);
+    res.status(500).json({ error: 'Failed to initiate password reset.' });
+  }
+});
+
+// reset password
+router.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters long." });
+  }
+
+  try {
+    const user = await User.findOne({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { [Op.gt]: Date.now() }, // Token must not be expired
+      },
+    });
+
+    if (!user) return res.status(400).json({ error: "Invalid or expired token." });
+
+    // Hash the new password and update the user
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({
+      password: hashedPassword,
+      resetToken: null, // Clear the reset token
+      resetTokenExpiry: null,
+    });
+
+    res.json({ message: "Password reset successfully." });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ error: "An error occurred while resetting your password." });
+  }
+});
   
 module.exports = router;
