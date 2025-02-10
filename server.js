@@ -26,7 +26,7 @@ app.use('/api', answersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', requestsRoutes);
 app.use('/api', proposalsRoutes);
-app.use('/api', comparisonRoutes);
+app.use('/api/comparison', comparisonRoutes);
 
 // Default
 app.get('/', (req, res) => {

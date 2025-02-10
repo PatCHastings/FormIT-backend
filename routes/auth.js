@@ -243,27 +243,47 @@ router.post('/password-reset-request', async (req, res) => {
 router.post("/reset-password", async (req, res) => {
   const { token, newPassword } = req.body;
 
+  // Validate input
+  if (!token) {
+    return res.status(400).json({ error: "Reset token is required." });
+  }
+
   if (!newPassword || newPassword.length < 8) {
     return res.status(400).json({ error: "Password must be at least 8 characters long." });
   }
 
   try {
-    const user = await User.findOne({
+    // Find the token in the database
+    const resetToken = await Token.findOne({
       where: {
-        resetToken: token,
-        resetTokenExpiry: { [Op.gt]: Date.now() }, // Token must not be expired
+        token,
+        expiresAt: { [Op.gt]: new Date() }, // Token must not be expired
       },
     });
 
-    if (!user) return res.status(400).json({ error: "Invalid or expired token." });
+    if (!resetToken) {
+      return res.status(400).json({ error: "Invalid or expired token." });
+    }
 
-    // Hash the new password and update the user
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await user.update({
-      password: hashedPassword,
-      resetToken: null, // Clear the reset token
-      resetTokenExpiry: null,
+    // Find the user associated with the token
+    const user = await User.findOne({
+      where: { email: resetToken.email },
     });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password
+    await user.update({
+      passwordHash: hashedPassword, // Assuming the field is "passwordHash"
+    });
+
+    // Delete the token to prevent reuse
+    await resetToken.destroy();
 
     res.json({ message: "Password reset successfully." });
   } catch (error) {
