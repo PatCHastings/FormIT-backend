@@ -1,4 +1,6 @@
-require('dotenv').config(); // Load .env variables
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
+});
 
 const { Sequelize } = require('sequelize');
 
@@ -8,18 +10,19 @@ const {
   DB_PASSWORD,
   DB_NAME,
   DB_HOST,
+  DB_PORT,
   DB_DIALECT,
 } = process.env;
 
-// Create a new Sequelize instance
+if (!DB_DIALECT) {
+  throw new Error("Database dialect is not defined in environment variables.");
+}
+
 const sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_PASSWORD, {
   host: DB_HOST,
+  port: DB_PORT || 5432,
   dialect: DB_DIALECT,
-  logging: console.log, // Set to false to disable SQL logging
-  define: {
-    underscored: true, // Enforce snake_case for table and column names globally
-    timestamps: true, // Default timestamps for all tables
-  },
+  logging: false, // Disable logging in production
 });
 
 module.exports = sequelize;
