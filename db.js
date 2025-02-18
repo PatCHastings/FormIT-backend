@@ -27,6 +27,12 @@ const sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_PASSWORD, {
     underscored: true, // Enforce snake_case for table and column names globally
     timestamps: true, 
   },
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false, // Ignore self-signed certificates in AWS RDS
+    },
+  },
 });
 
 module.exports = sequelize;
