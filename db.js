@@ -22,7 +22,11 @@ const sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_PASSWORD, {
   host: DB_HOST,
   port: DB_PORT || 5432,
   dialect: DB_DIALECT,
-  logging: false, // Disable logging in production
+  logging: console.log, 
+  define: {
+    underscored: true, // Enforce snake_case for table and column names globally
+    timestamps: true, 
+  },
 });
 
 module.exports = sequelize;

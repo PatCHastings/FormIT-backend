@@ -1,4 +1,4 @@
-const sequelize = require("../db"); // Your Sequelize instance
+const sequelize = require("../db"); // Sequelize instance
 const WizardStep = require("./WizardStep");
 const Category = require("./Category");
 const Question = require("./Question");
