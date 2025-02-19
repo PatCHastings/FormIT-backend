@@ -1,7 +1,3 @@
-require('dotenv').config({
-  path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
-});
-
 const { Sequelize } = require('sequelize');
 
 // Destructure environment variables
