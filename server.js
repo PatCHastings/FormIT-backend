@@ -9,34 +9,35 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
+// ✅ Add CloudFront to allowed origins
 const allowedOrigins = [
   'http://localhost:3000', // Local Development
   'https://formit-software.com', // Production Frontend
-  'https://api.formit-software.com' // API Domain (important for subdomain requests)
+  'https://api.formit-software.com', // API Domain
+  'https://d1zlrhr9gw6gx9.cloudfront.net' // ✅ Add CloudFront frontend domain
 ];
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*'); // Allow listed origins or wildcard for undefined cases
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-    // If preflight request, respond immediately
-    if (req.method === 'OPTIONS') {
-      return res.status(204).end();
+// ✅ Use CORS middleware properly
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, origin);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-  }
-  
-  next();
-});
+  },
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: 'Content-Type, Authorization',
+  credentials: true
+}));
 
+// ✅ Fix OPTIONS Preflight Requests
+app.options('*', cors());
+
+// ✅ Use Express JSON parser
 app.use(express.json());
 
-// Import routes
+// ✅ Import routes
 const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
 const wizardRoutes = require('./routes/wizardStep');
@@ -46,7 +47,7 @@ const requestsRoutes = require('./routes/requests');
 const proposalsRoutes = require('./routes/proposals');
 const comparisonRoutes = require('./routes/comparisons');
 
-// Setup route usage
+// ✅ Setup route usage
 app.use('/api/test', testRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', wizardRoutes);
@@ -56,11 +57,10 @@ app.use('/api', requestsRoutes);
 app.use('/api', proposalsRoutes);
 app.use('/api/comparison', comparisonRoutes);
 
-// Default
+// ✅ Default Route
 app.get('/', (req, res) => {
     res.send('Backend server is running');
-  });
-
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
