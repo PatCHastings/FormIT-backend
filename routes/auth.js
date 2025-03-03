@@ -145,12 +145,13 @@ router.post("/register/initiate", async (req, res) => {
         token,
         expiresAt: new Date(Date.now() + 3600000), // 1-hour expiration
       });
+      console.log("🟢 Email about to be sent to:", email, "with token:", token);
   
       // Send an email with the token link
       await sendEmail(
         email,
         "FormIT: Complete Your Registration",
-        `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password at this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`
+        `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password using this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`
       );
   
       res.status(200).json({ message: "Check your email to set a password." });

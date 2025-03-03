@@ -18,6 +18,7 @@ async function sendEmail({ to, subject, text, html }) {
   try {
     console.log('Recipient email:', to);
     if (!to || typeof to !== 'string' || !to.includes('@')) {
+      console.error("❌ ERROR: Email is missing or invalid before sending email!");
       throw new Error('Invalid recipient email');
     }
 
