@@ -148,11 +148,12 @@ router.post("/register/initiate", async (req, res) => {
       console.log("🟢 Email about to be sent to:", email, "with token:", token);
   
       // Send an email with the token link
-      await sendEmail(
-        email,
-        "FormIT: Complete Your Registration",
-        `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password using this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`
-      );
+      await sendEmail({
+        to: email,  // <-- Ensure email is correctly assigned to `to`
+        subject: "FormIT: Complete Your Registration",
+        text: `Hi ${fullName},\n\nWelcome to FormIT! To complete your registration, set your password using this link:\n${createPasswordUrl}\n\nBest regards,\nFormIT Team`,
+        html: `<p>Hi ${fullName},</p><p>Welcome to FormIT! To complete your registration, set your password using this link:</p><a href="${createPasswordUrl}">${createPasswordUrl}</a><p>Best regards,</p><p>FormIT Team</p>`,
+    });
   
       res.status(200).json({ message: "Check your email to set a password." });
     } catch (error) {
